@@ -1,0 +1,11 @@
+[Unit]
+Description=Run QuickNotes MySQL backup daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=30m
+Unit=quicknotes-backup.service
+
+[Install]
+WantedBy=timers.target

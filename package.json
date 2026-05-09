@@ -1,0 +1,13 @@
+{
+  "name": "fullstack-demo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Monorepo for React (Vite) + Node.js + MySQL + AWS",
+  "scripts": {
+    "backend:dev": "npm --prefix apps/backend run dev",
+    "backend:start": "npm --prefix apps/backend run start",
+    "frontend:dev": "npm --prefix apps/frontend run dev",
+    "frontend:build": "npm --prefix apps/frontend run build",
+    "frontend:preview": "npm --prefix apps/frontend run preview"
+  }
+}
