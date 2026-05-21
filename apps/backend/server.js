@@ -67,7 +67,7 @@ const pool = mysql.createPool({
 const getCookieOptions = () => ({
   httpOnly: true,
   sameSite: 'lax',
-  secure: process.env.NODE_ENV === 'production',
+  secure: process.env.COOKIE_SECURE === 'true',
   maxAge: 7 * 24 * 60 * 60 * 1000
 });
 
