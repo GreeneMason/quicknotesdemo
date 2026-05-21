@@ -144,6 +144,9 @@ const sendError = (res, statusCode, code, message) => {
   });
 };
 
+const NOTES_RATE_LIMIT_WINDOW_MS = Number(process.env.NOTES_RATE_LIMIT_WINDOW_MS || 60 * 1000);
+const NOTES_RATE_LIMIT_MAX = Number(process.env.NOTES_RATE_LIMIT_MAX || 120);
+
 const authRateLimiter = rateLimit({
   windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
   max: AUTH_RATE_LIMIT_MAX,
@@ -160,6 +163,18 @@ const authRateLimiter = rateLimit({
   }
 });
 
+const notesRateLimiter = rateLimit({
+  windowMs: NOTES_RATE_LIMIT_WINDOW_MS,
+  max: NOTES_RATE_LIMIT_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Too many requests. Please slow down.',
+    errorCode: 'NOTES_RATE_LIMITED'
+  }
+});
+
 // Test database connection
 pool.getConnection()
   .then(conn => {
@@ -172,11 +187,19 @@ pool.getConnection()
   });
 
 // Routes
+app.use('/api/notes', notesRateLimiter);
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 app.post('/api/auth/register', authRateLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
     return sendError(res, 400, 'EMAIL_PASSWORD_REQUIRED', 'Email and password are required');
+  }
+
+  if (!EMAIL_REGEX.test(email)) {
+    return sendError(res, 400, 'INVALID_EMAIL', 'Invalid email address');
   }
 
   if (password.length < 8) {
@@ -389,6 +412,21 @@ if (require.main === module) {
   server = app.listen(PORT, HOST, () => {
     log('info', `Server running on http://${HOST}:${PORT}`);
   });
+
+  const shutdown = (signal) => {
+    log('info', `${signal} received — shutting down gracefully`);
+    server.close(() => {
+      pool.end().finally(() => {
+        log('info', 'Server and DB pool closed');
+        process.exit(0);
+      });
+    });
+    // Force exit if graceful shutdown takes too long
+    setTimeout(() => process.exit(1), 10000).unref();
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 module.exports = {

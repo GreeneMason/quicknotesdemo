@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS greetings (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert sample data
-INSERT INTO greetings (message) VALUES ('Hello, World!');
-INSERT INTO greetings (message) VALUES ('Welcome to Full Stack Development!');
-INSERT INTO greetings (message) VALUES ('MySQL, Node.js, and React are working together!');
+-- Insert sample data (idempotent)
+INSERT IGNORE INTO greetings (id, message) VALUES (1, 'Hello, World!');
+INSERT IGNORE INTO greetings (id, message) VALUES (2, 'Welcome to Full Stack Development!');
+INSERT IGNORE INTO greetings (id, message) VALUES (3, 'MySQL, Node.js, and React are working together!');

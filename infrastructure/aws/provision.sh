@@ -41,11 +41,12 @@ SG_ID=$(aws ec2 create-security-group \
   --output text)
 echo "  Security Group ID: $SG_ID"
 
-# SSH (port 22) — restrict to your IP in production
+# SSH (port 22) — restricted to the deployer's current public IP
+MY_IP="$(curl -sf https://checkip.amazonaws.com || echo '0.0.0.0')"
 aws ec2 authorize-security-group-ingress \
   --region "$AWS_REGION" \
   --group-id "$SG_ID" \
-  --protocol tcp --port 22 --cidr 0.0.0.0/0
+  --protocol tcp --port 22 --cidr "${MY_IP}/32"
 
 # HTTP (port 80)
 aws ec2 authorize-security-group-ingress \
