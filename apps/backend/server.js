@@ -9,6 +9,10 @@ const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
+
+// Trust the nginx reverse proxy so express-rate-limit can read real client IPs
+app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
