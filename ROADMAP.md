@@ -9,6 +9,13 @@ Ship a clean, fast notes experience with:
 - Real-time style auto-save while editing
 - Full CRUD for user-owned notes
 
+## Current Status
+- [x] Frontend MVP flow is implemented: auth, dashboard, editor, auto-save, empty states, and responsive layout.
+- [x] Backend MVP API is implemented: auth, protected notes CRUD, validation, structured responses, and logging.
+- [x] Backend integration test harness exists for auth and notes CRUD.
+- [ ] Integration tests still need a real local MySQL instance on this machine to run end to end.
+- [ ] AWS deployment still needs live environment verification.
+
 ## Tech Stack
 - Frontend: React (Vite)
 - Backend: Node.js (Express)
@@ -25,59 +32,63 @@ Ship a clean, fast notes experience with:
 ## Frontend Roadmap
 
 ### Phase 1: Auth UI
-- Build login form (email + password).
-- Build register form (email + password).
-- Handle auth errors and loading states.
+- [x] Build login form (email + password).
+- [x] Build register form (email + password).
+- [x] Handle auth errors and loading states.
 
 ### Phase 2: Notes Dashboard Layout
-- Sidebar for note title list.
-- Main editor panel for selected note.
-- Add New Note, Delete Note, and Logout buttons.
+- [x] Sidebar for note title list.
+- [x] Main editor panel for selected note.
+- [x] Add New Note, Delete Note, and Logout buttons.
 
 ### Phase 3: Editor + Auto-Save
-- Editable title + body fields.
-- Debounced auto-save (for example 500-1000ms delay).
-- Save state indicators (Saving, Saved, Error).
+- [x] Editable title + body fields.
+- [x] Debounced auto-save (for example 500-1000ms delay).
+- [x] Save state indicators (Saving, Saved, Error).
 
 ### Phase 4: UX Polish
-- Empty-state views (no notes selected / no notes yet).
-- Keyboard shortcuts (optional): new note, delete note.
-- Basic responsive layout for mobile/tablet.
+- [x] Empty-state views (no notes selected / no notes yet).
+- [x] Keyboard shortcuts (optional): new note, delete note.
+- [x] Basic responsive layout for mobile/tablet.
 
 ## Backend Roadmap
 
 ### Phase 1: Auth API
-- `POST /auth/register` to create users.
-- `POST /auth/login` to authenticate users.
-- `POST /auth/logout` to end session.
-- `GET /auth/me` to return current user session.
+- [x] `POST /auth/register` to create users.
+- [x] `POST /auth/login` to authenticate users.
+- [x] `POST /auth/logout` to end session.
+- [x] `GET /auth/me` to return current user session.
 
 ### Phase 2: Notes API (Protected)
-- `GET /notes` list current user's notes.
-- `GET /notes/:id` return one note owned by user.
-- `POST /notes` create note.
-- `PUT /notes/:id` update note.
-- `DELETE /notes/:id` delete note.
+- [x] `GET /notes` list current user's notes.
+- [x] `GET /notes/:id` return one note owned by user.
+- [x] `POST /notes` create note.
+- [x] `PUT /notes/:id` update note.
+- [x] `DELETE /notes/:id` delete note.
 
 ### Phase 3: Middleware + Validation
-- Auth middleware to protect `/notes` routes.
-- Request validation for IDs, title/body lengths, and required fields.
-- Ownership checks to prevent cross-user access.
+- [x] Auth middleware to protect `/notes` routes.
+- [x] Request validation for IDs, title/body lengths, and required fields.
+- [x] Ownership checks to prevent cross-user access.
 
 ### Phase 4: Reliability
-- Centralized error handler.
-- Structured API response format.
-- Logging for auth failures and API errors.
+- [x] Centralized error handler.
+- [x] Structured API response format.
+- [x] Logging for auth failures and API errors.
+
+### Phase 5: Automated Verification
+- [x] Add backend integration tests for auth flows and notes CRUD.
+- [ ] Run the integration suite successfully against a local MySQL test database.
 
 ## Database Roadmap
 
 ### Schema
-- `users` table:
+- [x] `users` table:
   - `id` (PK)
   - `email` (unique)
   - `hashed_password`
   - `created_at`
-- `notes` table:
+- [x] `notes` table:
   - `id` (PK)
   - `user_id` (FK -> users.id)
   - `title`
@@ -86,16 +97,16 @@ Ship a clean, fast notes experience with:
   - `created_at`
 
 ### Indexes
-- Unique index on `users.email`.
-- Index on `notes.user_id`.
-- Optional composite index on `(user_id, updated_at)` for sorted note lists.
+- [x] Unique index on `users.email`.
+- [x] Index on `notes.user_id`.
+- [x] Composite index on `(user_id, updated_at)` for sorted note lists.
 
 ## Security Checklist
-- Hash passwords with bcrypt.
-- Store sessions securely (HTTP-only cookie).
-- Enable CORS with credentials for frontend origin.
-- Add rate limiting on auth endpoints.
-- Use parameterized SQL queries.
+- [x] Hash passwords with bcrypt.
+- [x] Store sessions securely (HTTP-only cookie).
+- [x] Enable CORS with credentials for frontend origin.
+- [x] Add rate limiting on auth endpoints.
+- [x] Use parameterized SQL queries.
 
 ## AWS Deployment Roadmap
 
@@ -121,14 +132,16 @@ Ship a clean, fast notes experience with:
 - Establish a simple operational checklist for launches.
 
 ## Suggested Milestones
-- Milestone 1: Auth complete (register/login/logout/me).
-- Milestone 2: Notes CRUD complete with ownership checks.
-- Milestone 3: Frontend dashboard + editor + auto-save complete.
-- Milestone 4: EC2 deployment live with Nginx + domain/HTTPS.
+- [x] Milestone 1: Auth complete (register/login/logout/me).
+- [x] Milestone 2: Notes CRUD complete with ownership checks.
+- [x] Milestone 3: Frontend dashboard + editor + auto-save complete.
+- [x] Milestone 4: Backend integration test harness added for auth and notes CRUD.
+- [ ] Milestone 5: Local MySQL-backed integration tests passing.
+- [ ] Milestone 6: EC2 deployment live with Nginx + domain/HTTPS.
 
 ## Definition of Done (MVP)
-- User can register, login, and logout.
-- User can create, edit (auto-save), list, and delete notes.
-- Notes are private per user.
-- App is reachable on AWS EC2 through Nginx.
-- Basic error handling and validation are in place.
+- [x] User can register, login, and logout.
+- [x] User can create, edit (auto-save), list, and delete notes.
+- [x] Notes are private per user.
+- [ ] App is reachable on AWS EC2 through Nginx.
+- [x] Basic error handling and validation are in place.

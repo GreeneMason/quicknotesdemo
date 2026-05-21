@@ -28,7 +28,15 @@ export NODE_ENV="${NODE_ENV:-production}"
 
 echo "==> [1/5] Pulling latest code..."
 cd "$APP_DIR"
-git pull --ff-only origin main
+
+# Pull the current branch instead of assuming 'main'.
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+if [[ -n "$CURRENT_BRANCH" && "$CURRENT_BRANCH" != "HEAD" ]]; then
+  git pull --ff-only origin "$CURRENT_BRANCH"
+else
+  echo "  WARNING: Could not determine current branch; skipping git pull."
+  echo "  If needed, run: git pull --ff-only origin <your-branch>"
+fi
 
 # ─── Backend ─────────────────────────────────────────────────────────────────
 echo "==> [2/5] Installing backend dependencies..."

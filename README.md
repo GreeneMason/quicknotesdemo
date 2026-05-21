@@ -64,9 +64,51 @@ From repo root:
 
 ```bash
 npm run backend:dev
+npm run backend:test
 npm run frontend:dev
 npm run frontend:build
 ```
+
+## Backend Integration Tests
+
+The backend test suite lives in `apps/backend/server.test.js` and uses Node's built-in test runner plus `supertest`.
+
+### Prerequisites
+
+- A local MySQL server must be running and reachable on `localhost:3306`.
+- The configured database user must be able to create a test database.
+- By default, the suite uses:
+	- `DB_HOST=localhost`
+	- `DB_USER=root`
+	- `DB_PASSWORD=root`
+	- `DB_NAME=fullstack_db_test`
+
+### Run The Suite
+
+From the backend directory:
+
+```bash
+cd apps/backend
+npm test
+```
+
+From the repo root:
+
+```bash
+npm run backend:test
+```
+
+### What The Tests Cover
+
+- Register, session lookup, logout, and stale-session rejection
+- Duplicate registration and invalid-login handling
+- Authenticated note create, list, fetch, update, and delete flows
+- Unauthenticated access rejection
+- Cross-user note access rejection
+
+### Current Behavior Without MySQL
+
+If MySQL is not running locally, the suite skips the integration cases and reports that the MySQL integration database is unavailable. That keeps CI or local runs readable while still making the missing dependency explicit.
 
 ## AWS Notes
 
@@ -77,11 +119,11 @@ npm run frontend:build
 
 ```bash
 # 1. From your local machine: create EC2 instance + security group
-export KEY_PAIR_NAME=my-key-pair
+export KEY_PAIR_NAME=quicknotesKey
 bash infrastructure/aws/provision.sh
 
 # 2. SSH into the instance
-ssh -i ~/.ssh/my-key-pair.pem ec2-user@<PUBLIC_IP>
+ssh -i ~/.ssh/quicknotesKey.pem ec2-user@<PUBLIC_IP>
 
 # 3. On the instance: install Node.js, nginx, MariaDB
 export DB_PASSWORD=your_strong_password

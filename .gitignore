@@ -22,3 +22,6 @@ Thumbs.db
 
 # Secrets / keys
 *.pem
+
+# Local scratch files
+text

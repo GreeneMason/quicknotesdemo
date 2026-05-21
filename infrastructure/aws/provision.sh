@@ -16,7 +16,7 @@ AMI_ID="${AMI_ID:-}"
 
 if [[ -z "$KEY_PAIR_NAME" ]]; then
   echo "ERROR: Set KEY_PAIR_NAME before running this script."
-  echo "  export KEY_PAIR_NAME=my-key-pair"
+  echo "  export KEY_PAIR_NAME=quicknotesKey"
   exit 1
 fi
 

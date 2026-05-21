@@ -25,9 +25,23 @@ const log = (level, message, meta = {}) => {
   }
 };
 
+// Production startup guard — fail fast rather than run with insecure defaults
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'change-me-in-production') {
+    log('error', 'FATAL: JWT_SECRET must be set to a strong secret in production. Set it in .env.');
+    process.exit(1);
+  }
+  if (!process.env.FRONTEND_ORIGIN) {
+    log('error', 'FATAL: FRONTEND_ORIGIN must be set in production. Set it in .env.');
+    process.exit(1);
+  }
+}
+
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_ORIGIN || true,
+  // In production FRONTEND_ORIGIN is guaranteed set by the guard above.
+  // In development fall back to allowing all origins for convenience.
+  origin: process.env.FRONTEND_ORIGIN || (process.env.NODE_ENV === 'production' ? false : true),
   credentials: true
 }));
 app.use(express.json());
@@ -147,11 +161,11 @@ const authRateLimiter = rateLimit({
 // Test database connection
 pool.getConnection()
   .then(conn => {
-    console.log('✓ Connected to MySQL database');
+    console.log('Connected to MySQL database');
     conn.release();
   })
   .catch(err => {
-    console.error('✗ Database connection failed:', err.message);
+    console.error('Database connection failed:', err.message);
     console.log('Make sure MySQL is running and the database is created.');
   });
 
@@ -367,6 +381,16 @@ app.use((err, req, res, next) => {
   return sendError(res, 500, 'UNEXPECTED_ERROR', 'An unexpected error occurred');
 });
 
-app.listen(PORT, HOST, () => {
-  log('info', `Server running on http://${HOST}:${PORT}`);
-});
+let server;
+
+if (require.main === module) {
+  server = app.listen(PORT, HOST, () => {
+    log('info', `Server running on http://${HOST}:${PORT}`);
+  });
+}
+
+module.exports = {
+  app,
+  pool,
+  server
+};
