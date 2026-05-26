@@ -295,8 +295,18 @@ app.post('/api/auth/logout', (req, res) => {
   return sendSuccess(res, 200, { loggedOut: true });
 });
 
-app.get('/api/auth/me', authMiddleware, (req, res) => {
-  return sendSuccess(res, 200, { user: { id: req.user.id, email: req.user.email } });
+app.get('/api/auth/me', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT is_admin FROM users WHERE id = ? LIMIT 1',
+      [req.user.id]
+    );
+    const is_admin = rows.length > 0 ? rows[0].is_admin : 0;
+    return sendSuccess(res, 200, { user: { id: req.user.id, email: req.user.email, is_admin } });
+  } catch (error) {
+    log('error', 'Session check error', { error: error.message, userId: req.user.id });
+    return sendError(res, 500, 'SESSION_CHECK_FAILED', 'Failed to verify session');
+  }
 });
 
 app.get('/api/notes', authMiddleware, async (req, res) => {

@@ -16,6 +16,10 @@ function App() {
   const [editorBody, setEditorBody] = useState('');
   const [editorDirty, setEditorDirty] = useState(false);
   const [saveState, setSaveState] = useState('saved');
+  const [view, setView] = useState('notes');
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminError, setAdminError] = useState(null);
 
   const parseJsonSafe = async (response) => {
     return response.json().catch(() => ({}));
@@ -108,6 +112,21 @@ function App() {
     } catch (err) {
       setError('Unable to logout right now');
       console.error('Logout error:', err);
+    }
+  };
+
+  const handleViewAdmin = async () => {
+    setView('admin');
+    setAdminError(null);
+    setAdminLoading(true);
+    try {
+      const response = await fetch('/api/admin/users', { credentials: 'include' });
+      const data = await readApiPayload(response, 'Failed to load users');
+      setAdminUsers(data.users || []);
+    } catch (err) {
+      setAdminError(err.message);
+    } finally {
+      setAdminLoading(false);
     }
   };
 
@@ -306,6 +325,25 @@ function App() {
               <p className="muted small">{user.email}</p>
             </div>
 
+            {user.is_admin === 1 && (
+              <div className="view-nav">
+                <button
+                  className={`toggle-button ${view === 'notes' ? 'active' : ''}`}
+                  onClick={() => setView('notes')}
+                  type="button"
+                >
+                  Notes
+                </button>
+                <button
+                  className={`toggle-button ${view === 'admin' ? 'active' : ''}`}
+                  onClick={handleViewAdmin}
+                  type="button"
+                >
+                  Admin
+                </button>
+              </div>
+            )}
+
             <div className="sidebar-actions">
               <button className="button small-button" onClick={handleCreateNote} type="button">
                 New Note
@@ -343,45 +381,81 @@ function App() {
           </aside>
 
           <section className="editor-panel">
-            {selectedNoteId ? (
-              <>
-                <div className="editor-top">
-                  <input
-                    className="editor-title-input"
-                    value={editorTitle}
-                    onChange={(e) => {
-                      setEditorTitle(e.target.value);
-                      setEditorDirty(true);
-                    }}
-                    placeholder="Untitled Note"
-                  />
-                  <span className={`save-state ${saveState}`}> 
-                    {saveState === 'saving' && 'Saving...'}
-                    {saveState === 'saved' && 'Saved'}
-                    {saveState === 'error' && 'Save failed'}
-                  </span>
-                </div>
-                <textarea
-                  className="editor-body-input"
-                  value={editorBody}
-                  onChange={(e) => {
-                    setEditorBody(e.target.value);
-                    setEditorDirty(true);
-                  }}
-                  placeholder="Start typing your note..."
-                />
-              </>
+            {view === 'admin' ? (
+              <div className="admin-panel">
+                <h2>All Users</h2>
+                {adminLoading && <p className="muted">Loading users...</p>}
+                {adminError && (
+                  <div className="error-box" role="alert">
+                    <strong>Error:</strong> {adminError}
+                  </div>
+                )}
+                {!adminLoading && !adminError && (
+                  <table className="users-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Email</th>
+                        <th>Admin</th>
+                        <th>Joined</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adminUsers.map((u) => (
+                        <tr key={u.id}>
+                          <td>{u.id}</td>
+                          <td>{u.email}</td>
+                          <td>{u.is_admin === 1 ? 'Yes' : 'No'}</td>
+                          <td>{new Date(u.created_at).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             ) : (
-              <div className="empty-editor">
-                <h2>No note selected</h2>
-                <p>Create a note to start writing.</p>
-              </div>
-            )}
+              <>
+                {selectedNoteId ? (
+                  <>
+                    <div className="editor-top">
+                      <input
+                        className="editor-title-input"
+                        value={editorTitle}
+                        onChange={(e) => {
+                          setEditorTitle(e.target.value);
+                          setEditorDirty(true);
+                        }}
+                        placeholder="Untitled Note"
+                      />
+                      <span className={`save-state ${saveState}`}> 
+                        {saveState === 'saving' && 'Saving...'}
+                        {saveState === 'saved' && 'Saved'}
+                        {saveState === 'error' && 'Save failed'}
+                      </span>
+                    </div>
+                    <textarea
+                      className="editor-body-input"
+                      value={editorBody}
+                      onChange={(e) => {
+                        setEditorBody(e.target.value);
+                        setEditorDirty(true);
+                      }}
+                      placeholder="Start typing your note..."
+                    />
+                  </>
+                ) : (
+                  <div className="empty-editor">
+                    <h2>No note selected</h2>
+                    <p>Create a note to start writing.</p>
+                  </div>
+                )}
 
-            {error && (
-              <div className="error-box" role="alert">
-                <strong>Error:</strong> {error}
-              </div>
+                {error && (
+                  <div className="error-box" role="alert">
+                    <strong>Error:</strong> {error}
+                  </div>
+                )}
+              </>
             )}
           </section>
         </main>
