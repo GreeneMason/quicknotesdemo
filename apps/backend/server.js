@@ -92,6 +92,22 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+const adminMiddleware = async (req, res, next) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT is_admin FROM users WHERE id = ? LIMIT 1',
+      [req.user.id]
+    );
+    if (rows.length === 0 || rows[0].is_admin !== 1) {
+      return sendError(res, 403, 'FORBIDDEN', 'Admin access required');
+    }
+    return next();
+  } catch (error) {
+    log('error', 'Admin check error', { error: error.message, userId: req.user.id });
+    return sendError(res, 500, 'ADMIN_CHECK_FAILED', 'Failed to verify admin status');
+  }
+};
+
 const noteIdMiddleware = (req, res, next) => {
   const noteId = Number(req.params.id);
 
@@ -388,6 +404,18 @@ app.delete('/api/notes/:id', authMiddleware, noteIdMiddleware, async (req, res) 
   } catch (error) {
     log('error', 'Delete note error', { error: error.message, userId: req.user.id, noteId: req.noteId });
     return sendError(res, 500, 'DELETE_NOTE_FAILED', 'Failed to delete note');
+  }
+});
+
+app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, email, is_admin, created_at FROM users ORDER BY created_at ASC'
+    );
+    return sendSuccess(res, 200, { users: rows });
+  } catch (error) {
+    log('error', 'List users error', { error: error.message, userId: req.user.id });
+    return sendError(res, 500, 'LIST_USERS_FAILED', 'Failed to list users');
   }
 });
 

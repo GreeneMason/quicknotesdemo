@@ -32,6 +32,7 @@ const schemaSql = `
     id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     hashed_password VARCHAR(255) NOT NULL,
+    is_admin TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -252,4 +253,64 @@ test('prevent cross-user note access', async (t) => {
   const deleteResponse = await intruder.delete(`/api/notes/${noteId}`);
   assert.equal(deleteResponse.status, 404);
   assert.equal(deleteResponse.body.errorCode, 'NOTE_NOT_FOUND');
+});
+
+test('admin user can list all users via GET /api/admin/users', async (t) => {
+  if (skipIfDatabaseUnavailable(t)) {
+    return;
+  }
+
+  const adminAgent = request.agent(app);
+
+  await adminAgent
+    .post('/api/auth/register')
+    .send({ email: 'admin@example.com', password: 'password123' })
+    .expect(201);
+
+  // Promote user to admin directly in the DB
+  await db.query('UPDATE users SET is_admin = 1 WHERE email = ?', ['admin@example.com']);
+
+  // Register a second non-admin user so the list has 2 entries
+  await request(app)
+    .post('/api/auth/register')
+    .send({ email: 'regular@example.com', password: 'password123' })
+    .expect(201);
+
+  const response = await adminAgent.get('/api/admin/users');
+  assert.equal(response.status, 200);
+  assert.equal(response.body.success, true);
+  assert.equal(response.body.data.users.length, 2);
+
+  const adminUser = response.body.data.users.find(u => u.email === 'admin@example.com');
+  assert.ok(adminUser);
+  assert.equal(adminUser.is_admin, 1);
+  // Ensure password hash is never returned
+  assert.equal(adminUser.hashed_password, undefined);
+});
+
+test('regular user is denied access to GET /api/admin/users', async (t) => {
+  if (skipIfDatabaseUnavailable(t)) {
+    return;
+  }
+
+  const agent = request.agent(app);
+
+  await agent
+    .post('/api/auth/register')
+    .send({ email: 'notadmin@example.com', password: 'password123' })
+    .expect(201);
+
+  const response = await agent.get('/api/admin/users');
+  assert.equal(response.status, 403);
+  assert.equal(response.body.errorCode, 'FORBIDDEN');
+});
+
+test('unauthenticated request is rejected from GET /api/admin/users', async (t) => {
+  if (skipIfDatabaseUnavailable(t)) {
+    return;
+  }
+
+  const response = await request(app).get('/api/admin/users');
+  assert.equal(response.status, 401);
+  assert.equal(response.body.errorCode, 'UNAUTHORIZED');
 });
