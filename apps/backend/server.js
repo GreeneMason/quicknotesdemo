@@ -7,6 +7,9 @@ const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 
@@ -16,9 +19,10 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
-const COOKIE_NAME = process.env.COOKIE_NAME || 'quicknotes_token';
-const NOTE_TITLE_MAX_LENGTH = 255;
-const NOTE_BODY_MAX_LENGTH = 20000;
+const COOKIE_NAME = process.env.COOKIE_NAME || 'csocial_token';
+const POST_TEXT_MAX_LENGTH = 5000;
+const LINK_URL_MAX_LENGTH = 2000;
+const LINK_TITLE_MAX_LENGTH = 255;
 const AUTH_RATE_LIMIT_WINDOW_MS = Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
 const AUTH_RATE_LIMIT_MAX = Number(process.env.AUTH_RATE_LIMIT_MAX || 20);
 
@@ -53,12 +57,41 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
+// Photo uploads setup
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+const photoStorage = multer.diskStorage({
+  destination: UPLOADS_DIR,
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
+  }
+});
+
+const photoUpload = multer({
+  storage: photoStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files (JPEG, PNG, GIF, WEBP) are allowed'));
+    }
+  }
+});
+
+app.use('/uploads', express.static(UPLOADS_DIR));
+
 // Create connection pool
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || 'root',
-  database: process.env.DB_NAME || 'fullstack_db',
+  database: process.env.DB_NAME || 'csocial_db',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -108,49 +141,14 @@ const adminMiddleware = async (req, res, next) => {
   }
 };
 
-const noteIdMiddleware = (req, res, next) => {
-  const noteId = Number(req.params.id);
+const postIdMiddleware = (req, res, next) => {
+  const postId = Number(req.params.id);
 
-  if (!Number.isInteger(noteId) || noteId <= 0) {
-    return sendError(res, 400, 'INVALID_NOTE_ID', 'Invalid note id');
+  if (!Number.isInteger(postId) || postId <= 0) {
+    return sendError(res, 400, 'INVALID_POST_ID', 'Invalid post id');
   }
 
-  req.noteId = noteId;
-  return next();
-};
-
-const validateNotePayload = (req, res, next) => {
-  const { title, body } = req.body || {};
-
-  if (typeof title !== 'string' || typeof body !== 'string') {
-    return sendError(res, 400, 'INVALID_NOTE_PAYLOAD', 'Title and body are required strings');
-  }
-
-  const trimmedTitle = title.trim() || 'Untitled Note';
-
-  if (trimmedTitle.length > NOTE_TITLE_MAX_LENGTH) {
-    return sendError(
-      res,
-      400,
-      'TITLE_TOO_LONG',
-      `Title must be ${NOTE_TITLE_MAX_LENGTH} characters or less`
-    );
-  }
-
-  if (body.length > NOTE_BODY_MAX_LENGTH) {
-    return sendError(
-      res,
-      400,
-      'BODY_TOO_LONG',
-      `Body must be ${NOTE_BODY_MAX_LENGTH} characters or less`
-    );
-  }
-
-  req.notePayload = {
-    title: trimmedTitle,
-    body
-  };
-
+  req.postId = postId;
   return next();
 };
 
@@ -164,8 +162,8 @@ const sendError = (res, statusCode, code, message) => {
   });
 };
 
-const NOTES_RATE_LIMIT_WINDOW_MS = Number(process.env.NOTES_RATE_LIMIT_WINDOW_MS || 60 * 1000);
-const NOTES_RATE_LIMIT_MAX = Number(process.env.NOTES_RATE_LIMIT_MAX || 120);
+const POSTS_RATE_LIMIT_WINDOW_MS = Number(process.env.POSTS_RATE_LIMIT_WINDOW_MS || 60 * 1000);
+const POSTS_RATE_LIMIT_MAX = Number(process.env.POSTS_RATE_LIMIT_MAX || 60);
 
 const authRateLimiter = rateLimit({
   windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
@@ -183,15 +181,15 @@ const authRateLimiter = rateLimit({
   }
 });
 
-const notesRateLimiter = rateLimit({
-  windowMs: NOTES_RATE_LIMIT_WINDOW_MS,
-  max: NOTES_RATE_LIMIT_MAX,
+const postsRateLimiter = rateLimit({
+  windowMs: POSTS_RATE_LIMIT_WINDOW_MS,
+  max: POSTS_RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     success: false,
     error: 'Too many requests. Please slow down.',
-    errorCode: 'NOTES_RATE_LIMITED'
+    errorCode: 'POSTS_RATE_LIMITED'
   }
 });
 
@@ -207,7 +205,7 @@ pool.getConnection()
   });
 
 // Routes
-app.use('/api/notes', notesRateLimiter);
+app.use('/api/posts', postsRateLimiter);
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -309,111 +307,160 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   }
 });
 
-app.get('/api/notes', authMiddleware, async (req, res) => {
+// GET /api/posts — social feed, newest first, with like counts
+app.get('/api/posts', authMiddleware, async (req, res) => {
   try {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = 20;
+    const offset = (page - 1) * limit;
+
     const [rows] = await pool.query(
-      `SELECT id, title, updated_at
-       FROM notes
-       WHERE user_id = ?
-       ORDER BY updated_at DESC`,
-      [req.user.id]
+      `SELECT p.id, p.user_id, u.email AS user_email,
+              p.text_content, p.photo_url, p.link_url, p.link_title, p.created_at,
+              COUNT(DISTINCT l.id) AS like_count,
+              SUM(CASE WHEN l.user_id = ? THEN 1 ELSE 0 END) AS liked_by_me
+       FROM posts p
+       JOIN users u ON u.id = p.user_id
+       LEFT JOIN post_likes l ON l.post_id = p.id
+       GROUP BY p.id
+       ORDER BY p.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [req.user.id, limit, offset]
     );
 
-    return sendSuccess(res, 200, { notes: rows });
+    return sendSuccess(res, 200, { posts: rows });
   } catch (error) {
-    log('error', 'List notes error', { error: error.message, userId: req.user.id });
-    return sendError(res, 500, 'LIST_NOTES_FAILED', 'Failed to list notes');
+    log('error', 'List posts error', { error: error.message, userId: req.user.id });
+    return sendError(res, 500, 'LIST_POSTS_FAILED', 'Failed to list posts');
   }
 });
 
-app.get('/api/notes/:id', authMiddleware, noteIdMiddleware, async (req, res) => {
+// POST /api/posts — create a post (multipart/form-data: text_content, photo, link_url, link_title)
+app.post('/api/posts', authMiddleware, (req, res, next) => {
+  photoUpload.single('photo')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      return sendError(res, 400, 'UPLOAD_ERROR', err.message);
+    }
+    if (err) {
+      return sendError(res, 400, 'UPLOAD_ERROR', err.message);
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      `SELECT id, user_id, title, body, updated_at, created_at
-       FROM notes
-       WHERE id = ? AND user_id = ?
-       LIMIT 1`,
-      [req.noteId, req.user.id]
-    );
+    const { text_content, link_url, link_title } = req.body;
 
-    if (rows.length === 0) {
-      return sendError(res, 404, 'NOTE_NOT_FOUND', 'Note not found');
+    if (!text_content && !req.file && !link_url) {
+      return sendError(res, 400, 'EMPTY_POST', 'Post must include text, a photo, or a link');
     }
 
-    const note = rows[0];
-    delete note.user_id;
-    return sendSuccess(res, 200, { note });
-  } catch (error) {
-    log('error', 'Get note error', { error: error.message, userId: req.user.id, noteId: req.noteId });
-    return sendError(res, 500, 'GET_NOTE_FAILED', 'Failed to get note');
-  }
-});
+    if (text_content && text_content.length > POST_TEXT_MAX_LENGTH) {
+      return sendError(res, 400, 'TEXT_TOO_LONG', `Text must be ${POST_TEXT_MAX_LENGTH} characters or less`);
+    }
 
-app.post('/api/notes', authMiddleware, validateNotePayload, async (req, res) => {
-  try {
+    if (link_url) {
+      if (link_url.length > LINK_URL_MAX_LENGTH) {
+        return sendError(res, 400, 'LINK_TOO_LONG', 'Link URL is too long');
+      }
+      try {
+        new URL(link_url);
+      } catch {
+        return sendError(res, 400, 'INVALID_LINK_URL', 'Link URL is not a valid URL');
+      }
+    }
+
+    if (link_title && link_title.length > LINK_TITLE_MAX_LENGTH) {
+      return sendError(res, 400, 'LINK_TITLE_TOO_LONG', `Link title must be ${LINK_TITLE_MAX_LENGTH} characters or less`);
+    }
+
+    const photo_url = req.file ? `/uploads/${req.file.filename}` : null;
     const [result] = await pool.query(
-      'INSERT INTO notes (user_id, title, body) VALUES (?, ?, ?)',
-      [req.user.id, req.notePayload.title, req.notePayload.body]
+      'INSERT INTO posts (user_id, text_content, photo_url, link_url, link_title) VALUES (?, ?, ?, ?, ?)',
+      [req.user.id, text_content || null, photo_url, link_url || null, link_title || null]
     );
 
     const [rows] = await pool.query(
-      `SELECT id, title, body, updated_at, created_at
-       FROM notes
-       WHERE id = ?
-       LIMIT 1`,
+      `SELECT p.id, p.user_id, u.email AS user_email,
+              p.text_content, p.photo_url, p.link_url, p.link_title, p.created_at,
+              0 AS like_count, 0 AS liked_by_me
+       FROM posts p
+       JOIN users u ON u.id = p.user_id
+       WHERE p.id = ?`,
       [result.insertId]
     );
 
-    return sendSuccess(res, 201, { note: rows[0] });
+    return sendSuccess(res, 201, { post: rows[0] });
   } catch (error) {
-    log('error', 'Create note error', { error: error.message, userId: req.user.id });
-    return sendError(res, 500, 'CREATE_NOTE_FAILED', 'Failed to create note');
+    log('error', 'Create post error', { error: error.message, userId: req.user.id });
+    return sendError(res, 500, 'CREATE_POST_FAILED', 'Failed to create post');
   }
 });
 
-app.put('/api/notes/:id', authMiddleware, noteIdMiddleware, validateNotePayload, async (req, res) => {
+// DELETE /api/posts/:id — delete own post
+app.delete('/api/posts/:id', authMiddleware, postIdMiddleware, async (req, res) => {
   try {
-    const [result] = await pool.query(
-      `UPDATE notes
-       SET title = ?, body = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ? AND user_id = ?`,
-      [req.notePayload.title, req.notePayload.body, req.noteId, req.user.id]
-    );
-
-    if (result.affectedRows === 0) {
-      return sendError(res, 404, 'NOTE_NOT_FOUND', 'Note not found');
-    }
-
     const [rows] = await pool.query(
-      `SELECT id, title, body, updated_at, created_at
-       FROM notes
-       WHERE id = ?
-       LIMIT 1`,
-      [req.noteId]
+      'SELECT user_id, photo_url FROM posts WHERE id = ? LIMIT 1',
+      [req.postId]
     );
 
-    return sendSuccess(res, 200, { note: rows[0] });
+    if (rows.length === 0) {
+      return sendError(res, 404, 'POST_NOT_FOUND', 'Post not found');
+    }
+
+    if (rows[0].user_id !== req.user.id) {
+      return sendError(res, 403, 'FORBIDDEN', 'You can only delete your own posts');
+    }
+
+    if (rows[0].photo_url) {
+      const filePath = path.join(__dirname, rows[0].photo_url);
+      fs.unlink(filePath, (err) => {
+        if (err) log('warn', 'Could not delete photo file', { path: filePath, error: err.message });
+      });
+    }
+
+    await pool.query('DELETE FROM posts WHERE id = ?', [req.postId]);
+    return sendSuccess(res, 200, { id: req.postId });
   } catch (error) {
-    log('error', 'Update note error', { error: error.message, userId: req.user.id, noteId: req.noteId });
-    return sendError(res, 500, 'UPDATE_NOTE_FAILED', 'Failed to update note');
+    log('error', 'Delete post error', { error: error.message, userId: req.user.id, postId: req.postId });
+    return sendError(res, 500, 'DELETE_POST_FAILED', 'Failed to delete post');
   }
 });
 
-app.delete('/api/notes/:id', authMiddleware, noteIdMiddleware, async (req, res) => {
+// POST /api/posts/:id/like — toggle like/unlike
+app.post('/api/posts/:id/like', authMiddleware, postIdMiddleware, async (req, res) => {
   try {
-    const [result] = await pool.query(
-      'DELETE FROM notes WHERE id = ? AND user_id = ?',
-      [req.noteId, req.user.id]
+    const [postRows] = await pool.query(
+      'SELECT id FROM posts WHERE id = ? LIMIT 1',
+      [req.postId]
     );
 
-    if (result.affectedRows === 0) {
-      return sendError(res, 404, 'NOTE_NOT_FOUND', 'Note not found');
+    if (postRows.length === 0) {
+      return sendError(res, 404, 'POST_NOT_FOUND', 'Post not found');
     }
 
-    return sendSuccess(res, 200, { id: req.noteId });
+    const [existing] = await pool.query(
+      'SELECT id FROM post_likes WHERE post_id = ? AND user_id = ? LIMIT 1',
+      [req.postId, req.user.id]
+    );
+
+    let liked;
+    if (existing.length > 0) {
+      await pool.query('DELETE FROM post_likes WHERE post_id = ? AND user_id = ?', [req.postId, req.user.id]);
+      liked = false;
+    } else {
+      await pool.query('INSERT INTO post_likes (post_id, user_id) VALUES (?, ?)', [req.postId, req.user.id]);
+      liked = true;
+    }
+
+    const [countRows] = await pool.query(
+      'SELECT COUNT(*) AS count FROM post_likes WHERE post_id = ?',
+      [req.postId]
+    );
+    return sendSuccess(res, 200, { liked, like_count: Number(countRows[0].count) });
   } catch (error) {
-    log('error', 'Delete note error', { error: error.message, userId: req.user.id, noteId: req.noteId });
-    return sendError(res, 500, 'DELETE_NOTE_FAILED', 'Failed to delete note');
+    log('error', 'Like post error', { error: error.message, userId: req.user.id, postId: req.postId });
+    return sendError(res, 500, 'LIKE_POST_FAILED', 'Failed to toggle like');
   }
 });
 
@@ -452,7 +499,7 @@ let server;
 
 if (require.main === module) {
   server = app.listen(PORT, HOST, () => {
-    log('info', `Server running on http://${HOST}:${PORT}`);
+    log('info', `C-Social server running on http://${HOST}:${PORT}`);
   });
 
   const shutdown = (signal) => {

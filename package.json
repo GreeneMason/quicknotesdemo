@@ -1,8 +1,8 @@
 {
-  "name": "fullstack-demo",
+  "name": "csocial",
   "private": true,
   "version": "1.0.0",
-  "description": "Monorepo for React (Vite) + Node.js + MySQL + AWS",
+  "description": "C-Social — a social media platform with posts, photos, and links",
   "scripts": {
     "backend:dev": "npm --prefix apps/backend run dev",
     "backend:test": "npm --prefix apps/backend run test",

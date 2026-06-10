@@ -7,9 +7,9 @@ process.env.NODE_ENV = 'test';
 process.env.DB_HOST = process.env.DB_HOST || 'localhost';
 process.env.DB_USER = process.env.DB_USER || 'root';
 process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'root';
-process.env.DB_NAME = process.env.DB_NAME || 'fullstack_db_test';
+process.env.DB_NAME = process.env.DB_NAME || 'csocial_db_test';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
-process.env.COOKIE_NAME = process.env.COOKIE_NAME || 'quicknotes_test_token';
+process.env.COOKIE_NAME = process.env.COOKIE_NAME || 'csocial_test_token';
 process.env.AUTH_RATE_LIMIT_MAX = process.env.AUTH_RATE_LIMIT_MAX || '1000';
 process.env.FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
 
@@ -36,16 +36,27 @@ const schemaSql = `
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 
-  CREATE TABLE IF NOT EXISTS notes (
+  CREATE TABLE IF NOT EXISTS posts (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    title VARCHAR(255) NOT NULL DEFAULT 'Untitled Note',
-    body TEXT NOT NULL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    text_content TEXT,
+    photo_url VARCHAR(500),
+    link_url VARCHAR(2000),
+    link_title VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_notes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_notes_user_id (user_id),
-    INDEX idx_notes_user_updated_at (user_id, updated_at)
+    CONSTRAINT fk_posts_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_posts_created_at (created_at),
+    INDEX idx_posts_user_id (user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS post_likes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    post_id INT NOT NULL,
+    user_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_post_like (post_id, user_id),
+    CONSTRAINT fk_likes_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+    CONSTRAINT fk_likes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 `;
 
@@ -65,7 +76,8 @@ const skipIfDatabaseUnavailable = (t) => {
 };
 
 const resetTables = async () => {
-  await db.query('DELETE FROM notes');
+  await db.query('DELETE FROM post_likes');
+  await db.query('DELETE FROM posts');
   await db.query('DELETE FROM users');
 };
 
@@ -165,7 +177,7 @@ test('reject duplicate registration and invalid login', async (t) => {
   assert.equal(invalidLogin.body.errorCode, 'INVALID_CREDENTIALS');
 });
 
-test('create, list, fetch, update, and delete a note for the authenticated user', async (t) => {
+test('create a text post and list the feed', async (t) => {
   if (skipIfDatabaseUnavailable(t)) {
     return;
   }
@@ -174,54 +186,91 @@ test('create, list, fetch, update, and delete a note for the authenticated user'
 
   await agent
     .post('/api/auth/register')
-    .send({ email: 'notes@example.com', password: 'password123' })
+    .send({ email: 'poster@example.com', password: 'password123' })
     .expect(201);
 
   const createResponse = await agent
-    .post('/api/notes')
-    .send({ title: 'First Note', body: 'Hello world' });
+    .post('/api/posts')
+    .field('text_content', 'Hello C-Social!');
 
   assert.equal(createResponse.status, 201);
-  assert.equal(createResponse.body.data.note.title, 'First Note');
-  const noteId = createResponse.body.data.note.id;
+  assert.equal(createResponse.body.data.post.text_content, 'Hello C-Social!');
+  const postId = createResponse.body.data.post.id;
 
-  const listResponse = await agent.get('/api/notes');
-  assert.equal(listResponse.status, 200);
-  assert.equal(listResponse.body.data.notes.length, 1);
-  assert.equal(listResponse.body.data.notes[0].id, noteId);
-
-  const fetchResponse = await agent.get(`/api/notes/${noteId}`);
-  assert.equal(fetchResponse.status, 200);
-  assert.equal(fetchResponse.body.data.note.body, 'Hello world');
-
-  const updateResponse = await agent
-    .put(`/api/notes/${noteId}`)
-    .send({ title: 'Updated Note', body: 'Updated body' });
-
-  assert.equal(updateResponse.status, 200);
-  assert.equal(updateResponse.body.data.note.title, 'Updated Note');
-
-  const deleteResponse = await agent.delete(`/api/notes/${noteId}`);
-  assert.equal(deleteResponse.status, 200);
-  assert.equal(deleteResponse.body.data.id, noteId);
-
-  const postDeleteList = await agent.get('/api/notes');
-  assert.equal(postDeleteList.status, 200);
-  assert.equal(postDeleteList.body.data.notes.length, 0);
+  const feedResponse = await agent.get('/api/posts');
+  assert.equal(feedResponse.status, 200);
+  assert.equal(feedResponse.body.data.posts.length, 1);
+  assert.equal(feedResponse.body.data.posts[0].id, postId);
 });
 
-test('prevent unauthenticated note access', async (t) => {
+test('like and unlike a post', async (t) => {
   if (skipIfDatabaseUnavailable(t)) {
     return;
   }
 
-  const response = await request(app).get('/api/notes');
+  const agent = request.agent(app);
 
+  await agent
+    .post('/api/auth/register')
+    .send({ email: 'liker@example.com', password: 'password123' })
+    .expect(201);
+
+  const createResponse = await agent
+    .post('/api/posts')
+    .field('text_content', 'Like me!')
+    .expect(201);
+
+  const postId = createResponse.body.data.post.id;
+
+  const likeResponse = await agent.post(`/api/posts/${postId}/like`);
+  assert.equal(likeResponse.status, 200);
+  assert.equal(likeResponse.body.data.liked, true);
+  assert.equal(likeResponse.body.data.like_count, 1);
+
+  const unlikeResponse = await agent.post(`/api/posts/${postId}/like`);
+  assert.equal(unlikeResponse.status, 200);
+  assert.equal(unlikeResponse.body.data.liked, false);
+  assert.equal(unlikeResponse.body.data.like_count, 0);
+});
+
+test('delete own post', async (t) => {
+  if (skipIfDatabaseUnavailable(t)) {
+    return;
+  }
+
+  const agent = request.agent(app);
+
+  await agent
+    .post('/api/auth/register')
+    .send({ email: 'deleter@example.com', password: 'password123' })
+    .expect(201);
+
+  const createResponse = await agent
+    .post('/api/posts')
+    .field('text_content', 'Delete me')
+    .expect(201);
+
+  const postId = createResponse.body.data.post.id;
+
+  const deleteResponse = await agent.delete(`/api/posts/${postId}`);
+  assert.equal(deleteResponse.status, 200);
+  assert.equal(deleteResponse.body.data.id, postId);
+
+  const feedResponse = await agent.get('/api/posts');
+  assert.equal(feedResponse.body.data.posts.length, 0);
+});
+
+test('prevent unauthenticated post access', async (t) => {
+  if (skipIfDatabaseUnavailable(t)) {
+    return;
+  }
+
+  const response = await request(app).get('/api/posts');
   assert.equal(response.status, 401);
   assert.equal(response.body.errorCode, 'UNAUTHORIZED');
 });
 
-test('prevent cross-user note access', async (t) => {
+test('prevent cross-user post deletion', async (t) => {
   if (skipIfDatabaseUnavailable(t)) {
     return;
   }
@@ -240,19 +289,32 @@ test('prevent cross-user note access', async (t) => {
     .expect(201);
 
   const createResponse = await owner
-    .post('/api/notes')
-    .send({ title: 'Private', body: 'Owner only' })
+    .post('/api/posts')
+    .field('text_content', 'My post')
     .expect(201);
 
-  const noteId = createResponse.body.data.note.id;
+  const postId = createResponse.body.data.post.id;
 
-  const fetchResponse = await intruder.get(`/api/notes/${noteId}`);
-  assert.equal(fetchResponse.status, 404);
-  assert.equal(fetchResponse.body.errorCode, 'NOTE_NOT_FOUND');
+  const deleteResponse = await intruder.delete(`/api/posts/${postId}`);
+  assert.equal(deleteResponse.status, 403);
+  assert.equal(deleteResponse.body.errorCode, 'FORBIDDEN');
+});
 
-  const deleteResponse = await intruder.delete(`/api/notes/${noteId}`);
-  assert.equal(deleteResponse.status, 404);
-  assert.equal(deleteResponse.body.errorCode, 'NOTE_NOT_FOUND');
+test('reject empty post creation', async (t) => {
+  if (skipIfDatabaseUnavailable(t)) {
+    return;
+  }
+
+  const agent = request.agent(app);
+
+  await agent
+    .post('/api/auth/register')
+    .send({ email: 'empty@example.com', password: 'password123' })
+    .expect(201);
+
+  const response = await agent.post('/api/posts').send({});
+  assert.equal(response.status, 400);
+  assert.equal(response.body.errorCode, 'EMPTY_POST');
 });
 
 test('admin user can list all users via GET /api/admin/users', async (t) => {
