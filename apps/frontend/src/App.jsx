@@ -529,62 +529,6 @@ function App() {
 }
 
 export default App;
-  const [adminUsers, setAdminUsers] = useState([]);
-  const [adminLoading, setAdminLoading] = useState(false);
-  const [adminError, setAdminError] = useState(null);
-
-
-
-  // Check if an auth cookie is already present.
-  useEffect(() => {
-    fetchSession();
-  }, []);
-
-  const fetchSession = async () => {
-    try {
-      const response = await fetch('/api/auth/me', {
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        setUser(null);
-        setLoading(false);
-        return;
-      }
-
-
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      });
-
-    } catch (err) {
-      setError('Unable to logout right now');
-      console.error('Logout error:', err);
-    }
-  };
-
-  const handleViewAdmin = async () => {
-    setView('admin');
-    setAdminError(null);
-    setAdminLoading(true);
-    try {
-      const response = await fetch('/api/admin/users', { credentials: 'include' });
-      const data = await readApiPayload(response, 'Failed to load users');
-      setAdminUsers(data.users || []);
-    } catch (err) {
-      setAdminError(err.message);
-    } finally {
-      setAdminLoading(false);
-    }
-  };
-
-
-
-
 
 
 
