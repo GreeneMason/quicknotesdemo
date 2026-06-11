@@ -105,9 +105,7 @@ body {
 /* ── Top bar ── */
 .top-bar {
   width: 100%;
-  background: rgba(20, 10, 50, 0.9);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
   position: sticky;
   top: 0;
   z-index: 100;
