@@ -464,6 +464,67 @@ app.post('/api/posts/:id/like', authMiddleware, postIdMiddleware, async (req, re
   }
 });
 
+// GET /api/posts/:id/comments — list comments for a post
+app.get('/api/posts/:id/comments', authMiddleware, postIdMiddleware, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT c.id, c.post_id, c.user_id, c.text_content, c.created_at, u.email AS user_email
+       FROM comments c
+       JOIN users u ON u.id = c.user_id
+       WHERE c.post_id = ?
+       ORDER BY c.created_at ASC`,
+      [req.postId]
+    );
+    return sendSuccess(res, 200, { comments: rows });
+  } catch (error) {
+    log('error', 'List comments error', { error: error.message, userId: req.user.id });
+    return sendError(res, 500, 'LIST_COMMENTS_FAILED', 'Failed to list comments');
+  }
+});
+
+// POST /api/posts/:id/comments — add a comment
+app.post('/api/posts/:id/comments', authMiddleware, postIdMiddleware, async (req, res) => {
+  const text = (req.body.text_content || '').trim();
+  if (!text) return sendError(res, 400, 'EMPTY_COMMENT', 'Comment cannot be empty');
+  if (text.length > 1000) return sendError(res, 400, 'COMMENT_TOO_LONG', 'Comment must be 1000 characters or fewer');
+  try {
+    const [result] = await pool.query(
+      'INSERT INTO comments (post_id, user_id, text_content) VALUES (?, ?, ?)',
+      [req.postId, req.user.id, text]
+    );
+    const [rows] = await pool.query(
+      `SELECT c.id, c.post_id, c.user_id, c.text_content, c.created_at, u.email AS user_email
+       FROM comments c JOIN users u ON u.id = c.user_id
+       WHERE c.id = ?`,
+      [result.insertId]
+    );
+    return sendSuccess(res, 201, { comment: rows[0] });
+  } catch (error) {
+    log('error', 'Create comment error', { error: error.message, userId: req.user.id });
+    return sendError(res, 500, 'CREATE_COMMENT_FAILED', 'Failed to create comment');
+  }
+});
+
+// DELETE /api/comments/:id — delete own comment
+app.delete('/api/comments/:id', authMiddleware, async (req, res) => {
+  const commentId = parseInt(req.params.id, 10);
+  if (!Number.isInteger(commentId) || commentId < 1) {
+    return sendError(res, 400, 'INVALID_COMMENT_ID', 'Invalid comment ID');
+  }
+  try {
+    const [rows] = await pool.query('SELECT id, user_id FROM comments WHERE id = ? LIMIT 1', [commentId]);
+    if (rows.length === 0) return sendError(res, 404, 'COMMENT_NOT_FOUND', 'Comment not found');
+    if (rows[0].user_id !== req.user.id && !req.user.is_admin) {
+      return sendError(res, 403, 'FORBIDDEN', 'You cannot delete this comment');
+    }
+    await pool.query('DELETE FROM comments WHERE id = ?', [commentId]);
+    return sendSuccess(res, 200, { id: commentId });
+  } catch (error) {
+    log('error', 'Delete comment error', { error: error.message, userId: req.user.id });
+    return sendError(res, 500, 'DELETE_COMMENT_FAILED', 'Failed to delete comment');
+  }
+});
+
 app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const [rows] = await pool.query(

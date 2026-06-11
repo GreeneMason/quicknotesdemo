@@ -4,6 +4,59 @@ import './App.css';
 function PostCard({ post, currentUserId, onLike, onDelete }) {
   const displayName = post.user_email.split('@')[0];
   const isOwn = post.user_id === currentUserId;
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+
+  const loadComments = async () => {
+    if (commentsLoading) return;
+    setCommentsLoading(true);
+    try {
+      const res = await fetch(`/api/posts/${post.id}/comments`, { credentials: 'include' });
+      const data = await res.json();
+      setComments(data.data?.comments || []);
+    } catch {
+      // silent fail
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  const toggleComments = () => {
+    const next = !showComments;
+    setShowComments(next);
+    if (next && comments.length === 0) loadComments();
+  };
+
+  const handleCommentSubmit = async (e) => {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+    setCommentSubmitting(true);
+    try {
+      const res = await fetch(`/api/posts/${post.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ text_content: commentText.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setComments((prev) => [...prev, data.data.comment]);
+        setCommentText('');
+      }
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    try {
+      await fetch(`/api/comments/${commentId}`, { method: 'DELETE', credentials: 'include' });
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+    } catch { /* silent */ }
+  };
 
   return (
     <article className="post-card">
@@ -58,7 +111,41 @@ function PostCard({ post, currentUserId, onLike, onDelete }) {
         >
           ♥{post.like_count > 0 ? ` ${post.like_count}` : ''}
         </button>
+        <button className="comment-toggle-btn" onClick={toggleComments} type="button">
+          💬{comments.length > 0 ? ` ${comments.length}` : ''}
+        </button>
       </footer>
+
+      {showComments && (
+        <div className="comments-section">
+          {commentsLoading && <p className="comments-loading">Loading...</p>}
+          {comments.map((c) => (
+            <div key={c.id} className="comment">
+              <div className="comment-avatar">{c.user_email.split('@')[0][0].toUpperCase()}</div>
+              <div className="comment-body">
+                <span className="comment-username">{c.user_email.split('@')[0]}</span>
+                <span className="comment-text">{c.text_content}</span>
+              </div>
+              {c.user_id === currentUserId && (
+                <button className="comment-delete-btn" onClick={() => handleDeleteComment(c.id)} type="button">✕</button>
+              )}
+            </div>
+          ))}
+          <form className="comment-form" onSubmit={handleCommentSubmit}>
+            <input
+              className="comment-input"
+              type="text"
+              placeholder="Write a comment..."
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              maxLength={1000}
+            />
+            <button className="comment-submit-btn" type="submit" disabled={commentSubmitting || !commentText.trim()}>
+              Post
+            </button>
+          </form>
+        </div>
+      )}
     </article>
   );
 }

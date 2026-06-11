@@ -437,7 +437,129 @@ body {
   border-top: 1px solid #f0eafa;
   padding-top: 10px;
   margin-top: 4px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
+
+.comment-toggle-btn {
+  background: transparent;
+  border: 1px solid #e8dff5;
+  color: #9880b5;
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.comment-toggle-btn:hover {
+  background: #f0eafa;
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.comments-section {
+  margin-top: 12px;
+  border-top: 1px solid #f0eafa;
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comments-loading {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.comment-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.comment-body {
+  flex: 1;
+  background: #f7f4fd;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 0.88rem;
+  color: var(--text-dark);
+}
+
+.comment-username {
+  font-weight: 600;
+  margin-right: 6px;
+  color: var(--brand);
+}
+
+.comment-delete-btn {
+  background: transparent;
+  border: none;
+  color: #bbb;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 2px 4px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.comment-delete-btn:hover { color: #e94d8b; }
+
+.comment-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.comment-input {
+  flex: 1;
+  border: 1px solid #e2d8f0;
+  border-radius: 20px;
+  padding: 7px 14px;
+  font-size: 0.88rem;
+  outline: none;
+  background: #faf8ff;
+  color: var(--text-dark);
+}
+
+.comment-input:focus {
+  border-color: var(--brand);
+  background: #fff;
+}
+
+.comment-submit-btn {
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 7px 16px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.comment-submit-btn:hover:not(:disabled) { background: var(--brand-hover); }
+.comment-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .like-btn {
   background: transparent;
