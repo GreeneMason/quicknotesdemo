@@ -362,7 +362,6 @@ function App() {
         <header className="top-bar">
           <div className="top-bar-inner">
             <div className="brand">
-              <span className="brand-mark">C#</span>
               <span className="brand-name">C-Social</span>
             </div>
             <nav className="top-nav">
