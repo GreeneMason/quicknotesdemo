@@ -23,7 +23,9 @@ body {
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #1f1035 0%, #3a1c71 50%, #d76d77 100%);
+  background-color: #0f0e17;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 28px 28px;
   background-attachment: fixed;
   min-height: 100vh;
   color: var(--text-dark);
@@ -39,7 +41,10 @@ body {
 }
 
 .app-feed {
-  align-items: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   padding: 0;
 }
 
@@ -188,9 +193,9 @@ body {
 /* ── Feed ── */
 .feed-main {
   max-width: 700px;
+  width: 100%;
   margin: 0 auto;
   padding: 24px 16px 48px;
-  width: 100%;
 }
 
 .feed-status {
