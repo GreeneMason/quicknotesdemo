@@ -1,41 +1,16 @@
 config:
   target: "http://54.201.165.116"
   phases:
-    - name: "Warm up"
-      duration: 30
-      arrivalRate: 5
-    - name: "Ramp up"
-      duration: 60
-      arrivalRate: 5
-      rampTo: 30
-    - name: "Sustained load"
-      duration: 60
-      arrivalRate: 30
+    - name: "Ramp 10 → 100 users over 2 minutes"
+      duration: 120
+      arrivalRate: 10
+      rampTo: 100
   defaults:
     headers:
-      Content-Type: "application/json"
+      Cookie: "csocial_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJtYXNvbm1ncmVlbmVAZ21haWwuY29tIiwiaWF0IjoxNzgxNjU1MjYyLCJleHAiOjE3ODIyNjAwNjJ9.Q5kCABeztvZi-2IjT1lJfwq3VkcwLKS7QkVnmziiYpU"
 
 scenarios:
-  - name: "Browse feed (unauthenticated)"
-    weight: 2
+  - name: "API feed read"
     flow:
-      - get:
-          url: "/"
-
-  - name: "Register and post"
-    weight: 1
-    flow:
-      - post:
-          url: "/api/auth/register"
-          json:
-            email: "loadtest-{{ $randomString() }}@example.com"
-            password: "Password123!"
-          capture:
-            - json: "$.data.user.id"
-              as: "userId"
-      - post:
-          url: "/api/posts"
-          formData:
-            text_content: "Load test post {{ $randomString() }}"
       - get:
           url: "/api/posts"
