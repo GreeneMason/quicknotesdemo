@@ -1,5 +1,5 @@
 -- C-Social database schema
-CREATE DATABASE IF NOT EXISTS csocial_db;
+CREATE DATABASE IF NOT EXISTS csocial_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE csocial_db;
 
 -- Users table
