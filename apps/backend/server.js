@@ -311,7 +311,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 app.get('/api/posts', authMiddleware, async (req, res) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = 20;
+    const limit = 50;
     const offset = (page - 1) * limit;
 
     const [rows] = await pool.query(
