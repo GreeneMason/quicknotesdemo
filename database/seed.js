@@ -8,7 +8,12 @@
  * Requires .env in apps/backend/ with DB credentials.
  */
 
-require('dotenv').config({ path: require('path').join(__dirname, '../apps/backend/.env') });
+// Allow this script to find modules from the backend folder
+const path = require('path');
+const backendDir = path.join(__dirname, '../apps/backend');
+require('module').globalPaths.push(path.join(backendDir, 'node_modules'));
+
+require('dotenv').config({ path: path.join(backendDir, '.env') });
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 
